@@ -68,14 +68,15 @@
                     <Button Grid.Row="2" Content="Применить" Margin="0 3 0 0" Background="#FF68EC68" BorderBrush="#FFC8C8C8" Click="ApplyChanges"/>
                 </Grid>
             </Grid>
-
-            <Grid Grid.Column="1" Margin="5 0 0 0">
+            
+            <!--Script Settings-->
+            <Grid x:Name="ScriptSettings_Grid" Visibility="Hidden" Grid.Column="1" Margin="5 0 0 0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="20"/>
-                    <!--<RowDefinition Height="100"/>-->
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="30"/>
                 </Grid.RowDefinitions>
-                <Label Grid.Row="0" Content="Описание сценария" Padding="0" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"/>
+                <Label x:Name="scriptName" Grid.Row="0" Content="Описание сценария" Padding="0" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"/>
                 
 
                 <StackPanel Grid.Row="1">
@@ -83,13 +84,72 @@
                         <TextBlock x:Name="scriptDescription" Text="" TextWrapping="WrapWithOverflow"/>
                     </Border>
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0 5 0 0">
-                            <TextBox TextAlignment="Center" Width="60" Height="20" MaxLength="1" MaxLines="1" PreviewKeyDown="KeyboardInput" IsReadOnly="True"/>
+                        <!--Key Input-->
+                        <StackPanel x:Name="KeybindInput_StackPanel" Visibility="Collapsed" Orientation="Horizontal" Margin="0 5 0 0">
+                            <TextBox x:Name="Keybind_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="1" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
                             <Label Content="Используемая в игре клавиша" Padding="0" Margin="5 0 0 0"/>
+                        </StackPanel>
+                        <!--Int Input-->
+                        <StackPanel x:Name="IntInput_StackPanel" Visibility="Collapsed" Orientation="Horizontal" Margin="0 5 0 0">
+                            <TextBox x:Name="Int_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="IntInput"/>
+                            <Label Content="Значение N" Padding="0" Margin="5 0 0 0"/>
+                        </StackPanel>
+                        <!--Walking Somewhere-->
+                        <StackPanel x:Name="WalkingSomewhere_StackPanel" Visibility="Collapsed" Margin="0 5 0 0">
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Forward_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Вперёд" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Left_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Влево" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Backward_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Назад" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Right_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Вправо" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!--Weapon Switch-->
+                        <StackPanel x:Name="WeaponSwitch_StackPanel" Visibility="Collapsed" Margin="0 5 0 0">
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Main_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Основное оружие" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Secondary_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Пистолет" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Knife_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Нож" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Grenades_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Гранаты" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
+                                <TextBox x:Name="Bomb_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
+                                <Label Content="Бомба" Padding="0" Margin="5 0 0 0"/>
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
-                
+
+                <!--Configuration Buttons-->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*"/>
+                        <ColumnDefinition Width="1*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Content="Сохранить" Grid.Column="1" Margin="2.5,3,0,0" Background="#FFCCCCCC" BorderBrush="#FFC8C8C8" Click="SaveScriptSettings" />
+                    <Button Content="Закрыть" Grid.Column="0" Margin="0,3,2.5,0" Background="#FFF3A0A0" BorderBrush="#FFC8C8C8" Click="CloseScriptSettings" />
+                </Grid>
             </Grid>
         </Grid>
     </Grid>
