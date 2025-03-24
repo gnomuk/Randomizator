@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Security.Cryptography;
+using System.Linq;
 using System.Windows;
 
 public class ScriptInfo : INotifyPropertyChanged
@@ -72,6 +72,11 @@ public class ScriptCollection : INotifyPropertyChanged
     public void EditScript(ScriptEntry item, Dictionary<string, string> binds)
     {
         foreach (var scriptEntry in Scripts) if (scriptEntry == item) scriptEntry.Info.Config.Binds = binds;
+    }
+
+    public ScriptEntry FindScriptByShortName(string shortName)
+    {
+        return Scripts.FirstOrDefault(script => script.ShortName == shortName);
     }
 
     public void SaveToJson(string filePath)
