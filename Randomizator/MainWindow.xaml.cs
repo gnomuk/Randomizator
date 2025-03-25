@@ -162,6 +162,8 @@ namespace Randomizator
             {"XButton2", MouseButtons.XButton2}
         };
 
+        readonly string[] isThisMouseButton = { "Left", "Right", "Middle", "Up", "Down", "XButton1", "XButton2" };
+
         private readonly Dictionary<string, Func<CancellationToken, ScriptCollection, Task>> allFunctions;
 
         List<Func<CancellationToken, ScriptCollection, Task>> enabledFunctions = new List<Func<CancellationToken, ScriptCollection, Task>>();
@@ -180,7 +182,10 @@ namespace Randomizator
                 { "Reload", Reload_Script },
                 { "Fire", Fire_Script },
                 { "SFire", SFire_Script },
-                { "Voice", Voice_Script }
+                { "Voice", Voice_Script },
+                { "Crouch", Crouch_Script },
+                { "Sneak", Sneak_Script },
+                { "WeaponSwitch", WeaponSwitch_Script }
             };
         }
 
@@ -430,9 +435,32 @@ namespace Randomizator
             foreach (var i in viewModel.Scripts.Where(x => x.Info.Enabled).Select(x => x.ShortName).ToList()) enabledFunctions.Add(allFunctions[i]);
         }
         
-        private void SendKey(string key, int @int)
+        private void MouseClick(string key)
         {
-            
+            switch (key)
+            {
+                case ("Left"):
+                    inputSimulator.Mouse.LeftButtonClick();
+                    break;
+                case ("Right"):
+                    inputSimulator.Mouse.RightButtonClick();
+                    break;
+                case ("Up"):
+                    inputSimulator.Mouse.VerticalScroll(1);
+                    break;
+                case ("Down"):
+                    inputSimulator.Mouse.VerticalScroll(-1);
+                    break;
+            }
+        }
+        
+        private async Task PressAndBlockKey(CancellationToken ct, ScriptCollection viewModel, string key)
+        {
+            using (var blocker = new WinApiKeyBlocker())
+            {
+                await blocker.BlockKey(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName(key).Info.Config.Binds.Values.FirstOrDefault()), viewModel.FindScriptByShortName(key).Info.Config.Int * 1000, ct);
+            }
+            return;
         }
         #endregion
 
@@ -440,45 +468,77 @@ namespace Randomizator
         private async Task Drop_Script(CancellationToken ct, ScriptCollection viewModel)
         {
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Drop").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(500);
+            await Task.Delay(500, ct);
         }
 
         private async Task Jump_Script(CancellationToken ct, ScriptCollection viewModel)
         {
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Jump").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(500);
+            await Task.Delay(500, ct);
         }
 
         private async Task Inspect_Script(CancellationToken ct, ScriptCollection viewModel)
         {
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Inspect").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(500);
+            await Task.Delay(500, ct);
         }
 
         private async Task Reload_Script(CancellationToken ct, ScriptCollection viewModel)
         {
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Reload").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(500);
+            await Task.Delay(500, ct);
         }
 
         private async Task Fire_Script(CancellationToken ct, ScriptCollection viewModel)
         {
-            inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Fire").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(500);
+            string key = viewModel.FindScriptByShortName("Fire").Info.Config.Binds.Values.FirstOrDefault();
+            if (isThisMouseButton.Contains(key))
+            {
+                MouseClick(key);
+                return;
+            }
+
+            inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(key));
+            await Task.Delay(500, ct);
         }
 
         private async Task SFire_Script(CancellationToken ct, ScriptCollection viewModel)
         {
-            inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("SFire").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(500);
+            string key = viewModel.FindScriptByShortName("SFire").Info.Config.Binds.Values.FirstOrDefault();
+            if (isThisMouseButton.Contains(key))
+            {
+                MouseClick(key);
+                return;
+            }
+
+            inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(key));
+            await Task.Delay(500, ct);
         }
 
         private async Task Voice_Script(CancellationToken ct, ScriptCollection viewModel)
         {
-            inputSimulator.Keyboard.KeyDown(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Voice").Info.Config.Binds.Values.FirstOrDefault()));
-            await Task.Delay(viewModel.FindScriptByShortName("Voice").Info.Config.Int * 1000, ct);
-            inputSimulator.Keyboard.KeyUp(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Voice").Info.Config.Binds.Values.FirstOrDefault()));
+            await PressAndBlockKey(ct, viewModel, "Voice");
         }
+
+        private async Task Crouch_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            await PressAndBlockKey(ct, viewModel, "Crouch");
+        }
+
+        private async Task Sneak_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            await PressAndBlockKey(ct, viewModel, "Sneak");
+        }
+
+        private async Task WeaponSwitch_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            Random random = new Random();
+            var binds = viewModel.FindScriptByShortName("WeaponSwitch").Info.Config.Binds.Values.ToList();
+            inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(binds[random.Next(binds.Count)]));
+            await Task.Delay(500, ct);
+        }
+
+
         #endregion
     }
 }
