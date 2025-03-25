@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -7,7 +8,7 @@ using System.Windows.Forms;
 using WindowsInput;
 using WindowsInput.Native;
 
-public sealed class WinApiKeyBlocker : IDisposable
+public sealed class BlockTheEntireKeyboard : IDisposable
 {
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -32,15 +33,16 @@ public sealed class WinApiKeyBlocker : IDisposable
     private const int WM_KEYDOWN = 0x0100;
     private const int WM_KEYUP = 0x0101;
 
-    private VirtualKeyCode _currentKey;
+    private List<VirtualKeyCode> keysForRelease;
     private volatile bool _isDisposed = false;
     private Thread _hookThread;
+    InputSimulator inputSimulator = new InputSimulator();
 
-    public async Task BlockKey(VirtualKeyCode key, int durationMs, CancellationToken token)
+    public async Task BlockKeyboard(int durationMs, CancellationToken token, List<VirtualKeyCode> keys)
     {
-        if (_isDisposed) throw new ObjectDisposedException(nameof(WinApiKeyBlocker));
+        keysForRelease = keys;
 
-        _currentKey = key;
+        if (_isDisposed) throw new ObjectDisposedException(nameof(BlockTheEntireKeyboard));
 
         _hookProc = HookCallback;
         _hookThread = new Thread(() =>
@@ -52,11 +54,12 @@ public sealed class WinApiKeyBlocker : IDisposable
             IsBackground = true
         };
 
-        PressAndReleaseKey(true);
+        ReleaseKeys();
+
         _hookThread.Start();
         await Task.Delay(durationMs, token);
+        inputSimulator.Keyboard.KeyUp(VirtualKeyCode.LMENU);
         Cleanup();
-        PressAndReleaseKey(false);
     }
 
     private static IntPtr SetHook(LowLevelKeyboardProc proc)
@@ -73,17 +76,17 @@ public sealed class WinApiKeyBlocker : IDisposable
     {
         if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_KEYUP))
         {
-            int vkCode = Marshal.ReadInt32(lParam);
-            if ((Keys)vkCode == (Keys)_currentKey) return (IntPtr)1;
+            return (IntPtr)1;
         }
         return CallNextHookEx(_hookID, nCode, wParam, lParam);
     }
 
-    private void PressAndReleaseKey(bool down)
+    private void ReleaseKeys()
     {
-        InputSimulator inputSimulator = new InputSimulator();
-        if (down) inputSimulator.Keyboard.KeyDown(_currentKey);
-        else inputSimulator.Keyboard.KeyUp(_currentKey);
+        foreach (VirtualKeyCode key in keysForRelease)
+        {
+            inputSimulator.Keyboard.KeyUp(key);
+        }
     }
 
     private void Cleanup()

@@ -73,8 +73,9 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Classes\BlockTheEntireKeyboard.cs" />
     <Compile Include="Classes\ScriptCollection.cs" />
-    <Compile Include="Classes\WinAPI.cs" />
+    <Compile Include="Classes\BlockSpecificKeys.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
