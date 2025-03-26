@@ -57,7 +57,9 @@
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <Grid>
-                                    <CheckBox HorizontalAlignment="Left" Height="16" Content="{Binding Info.Name}" IsChecked="{Binding Info.Enabled, Mode=TwoWay}"/>
+                                    <CheckBox HorizontalAlignment="Left" Height="16" IsChecked="{Binding Info.Enabled, Mode=TwoWay}">
+                                        <TextBlock MaxWidth="150" Text="{Binding Info.Name}" TextTrimming="CharacterEllipsis"/>
+                                    </CheckBox>
                                     <Button Width="16" Height="16" HorizontalAlignment="Right" Style="{StaticResource GearStyle}" Cursor="Hand" Visibility="{Binding Info.Show_Gear}" Click="ScriptSettings">
                                         <Image RenderOptions.BitmapScalingMode="HighQuality" Width="16" Height="16" Source="Assets/Images/gear.png"/>
                                     </Button>

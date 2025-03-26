@@ -36,6 +36,7 @@ namespace Randomizator
         //Директории
         readonly string MYDIRECTORY = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator";
         readonly string MYCONFIG = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator/config.json";
+        readonly string MYLOGSFOLDER = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator/Logs";
 
         // Словари
         readonly Dictionary<string, Keys> winFormsKeycodes = new Dictionary<string, Keys>
@@ -169,9 +170,13 @@ namespace Randomizator
         List<Func<CancellationToken, ScriptCollection, Task>> enabledFunctions = new List<Func<CancellationToken, ScriptCollection, Task>>();
 
         #endregion
+        
         public MainWindow()
         {
             InitializeComponent();
+            if (!Directory.Exists(MYDIRECTORY)) Directory.CreateDirectory(MYDIRECTORY);
+            if (!Directory.Exists(MYLOGSFOLDER)) Directory.CreateDirectory(MYLOGSFOLDER);
+
             this.DataContext = new ScriptCollection();
 
             allFunctions = new Dictionary<string, Func<CancellationToken, ScriptCollection, Task>>
@@ -180,6 +185,7 @@ namespace Randomizator
                 { "Jump", Jump_Script },
                 { "Inspect", Inspect_Script },
                 { "Reload", Reload_Script },
+                { "Interact", Interact_Script },
                 { "Fire", Fire_Script },
                 { "SFire", SFire_Script },
                 { "Voice", Voice_Script },
@@ -191,6 +197,9 @@ namespace Randomizator
                 { "Ping", Ping_Script },
                 { "DisablingTheKeyboard", DisablingTheKeyboard_Script },
                 { "DisablingTheMouse", DisablingTheMouse_Script },
+                { "DisableShooting", DisableShooting_Script },
+                { "DisableRotation", DisableRotation_Script },
+                { "InvertControl", InvertControl_Script },
             };
         }
 
@@ -200,7 +209,6 @@ namespace Randomizator
             var viewModel = (ScriptCollection)this.DataContext;
             CollectScripts(viewModel);
             scriptsLabel.Content = $"Список сценариев ({EnabledScriptsCount(viewModel)})";
-            if (!Directory.Exists(MYDIRECTORY)) Directory.CreateDirectory(MYDIRECTORY);
         }
 
         private void DragWindow(object sender, MouseButtonEventArgs e) { DragMove(); }
@@ -314,11 +322,13 @@ namespace Randomizator
             if (item.ShortName == "WeaponSwitch")
             {
                 WeaponSwitch_StackPanel.Visibility = Visibility.Visible;
-                Main_TextBox.Text = item.Info.Config.Binds["Main"];
-                Secondary_TextBox.Text = item.Info.Config.Binds["Secondary"];
-                Knife_TextBox.Text = item.Info.Config.Binds["Knife"];
-                Grenades_TextBox.Text = item.Info.Config.Binds["Grenades"];
-                Bomb_TextBox.Text = item.Info.Config.Binds["Bomb"];
+                if (item.Info.Config.Binds.ContainsKey("Main")) Main_TextBox.Text = item.Info.Config.Binds["Main"];
+                if (item.Info.Config.Binds.ContainsKey("Secondary")) Secondary_TextBox.Text = item.Info.Config.Binds["Secondary"];
+                if (item.Info.Config.Binds.ContainsKey("Knife")) Knife_TextBox.Text = item.Info.Config.Binds["Knife"];
+                if (item.Info.Config.Binds.ContainsKey("Grenades")) Grenades_TextBox.Text = item.Info.Config.Binds["Grenades"];
+                if (item.Info.Config.Binds.ContainsKey("Bomb")) Bomb_TextBox.Text = item.Info.Config.Binds["Bomb"];
+
+                
             }
             else WeaponSwitch_StackPanel.Visibility = Visibility.Collapsed;
 
@@ -367,6 +377,7 @@ namespace Randomizator
             switch (selectedScript.ShortName)
             {
                 case ("WalkingSomewhere"):
+                    if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
                     binds.Add("Forward", Forward_TextBox.Text);
                     binds.Add("Left", Left_TextBox.Text);
                     binds.Add("Backward", Backward_TextBox.Text);
@@ -374,11 +385,12 @@ namespace Randomizator
                     break;
 
                 case ("WeaponSwitch"):
-                    binds.Add("Main", Main_TextBox.Text);
-                    binds.Add("Secondary", Secondary_TextBox.Text);
-                    binds.Add("Knife", Knife_TextBox.Text);
-                    binds.Add("Grenades", Grenades_TextBox.Text);
-                    binds.Add("Bomb", Bomb_TextBox.Text);
+                    if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
+                    if (Main_TextBox.Text != "") binds.Add("Main", Main_TextBox.Text);
+                    if (Secondary_TextBox.Text != "") binds.Add("Secondary", Secondary_TextBox.Text);
+                    if (Knife_TextBox.Text != "") binds.Add("Knife", Knife_TextBox.Text);
+                    if (Grenades_TextBox.Text != "") binds.Add("Grenades", Grenades_TextBox.Text);
+                    if (Bomb_TextBox.Text != "") binds.Add("Bomb", Bomb_TextBox.Text);
                     break;
 
                 default:
@@ -400,17 +412,21 @@ namespace Randomizator
                 viewModel.AddScript("Jump", "Прыжок", "Нажимает кнопку \"Прыжка\".", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "Space" } });
                 viewModel.AddScript("Inspect", "Осмотр оружия", "Запускает анимацию осмотра оружия.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "F" } });
                 viewModel.AddScript("Reload", "Перезарядка", "Перезаряжает оружие которое вы держите в руках.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "R" } });
+                viewModel.AddScript("Interact", "Взаимодействие", "Нажимает кнопку \"Взаимодействие\", может неожиданно прервать обезвреживание бомбы.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "E" } });
                 viewModel.AddScript("Fire", "Огонь", "Нажимает кнопку \"Выстрела\".", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "Left" } });
                 viewModel.AddScript("SFire", "Альтернативный огонь", "Нажимает кнопку \"Альтернативного огня\", обычно используется для прицеливания и переключения режима стрельбы.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "Right" } });
                 viewModel.AddScript("Voice", "Голосовой чат", "Включает ваш микрофон на N секунд.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "C" } }, 10);
                 viewModel.AddScript("Crouch", "Приседание", "Зажимает кнопку \"Приседания\" на N секунд.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "LeftCtrl" } }, 10);
                 viewModel.AddScript("Sneak", "Медленная ходьба", "Зажимает кнопку \"Медленной ходьбы\" на N секунд.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "LeftShift" } }, 10);
                 viewModel.AddScript("WeaponSwitch", "Переключение оружия", "Переключает оружие в руках на случайное.", false, Visibility.Visible, new Dictionary<string, string> { { "Main", "D1" }, { "Secondary", "D2" }, { "Knife", "D3" }, { "Grenades", "D4" }, { "Bomb", "D5" } });
-                viewModel.AddScript("WalkingSomewhere", "Случайная ходьба", "Задает направление ходьбы в случайное направление (вперёд, влево, назад, вправо).", false, Visibility.Visible, new Dictionary<string, string> { { "Forward", "W" }, { "Left", "A" }, { "Backward", "S" }, { "Right", "D" } });
+                viewModel.AddScript("WalkingSomewhere", "Случайная ходьба", "Задает направление ходьбы в случайное направление (вперёд, влево, назад, вправо) на N секунд.", false, Visibility.Visible, new Dictionary<string, string> { { "Forward", "W" }, { "Left", "A" }, { "Backward", "S" }, { "Right", "D" } }, 10);
                 viewModel.AddScript("TurnAround", "Разворот", "Разворачивает персонажа в случайном направлении", false, Visibility.Visible, new Dictionary<string, string>());
                 viewModel.AddScript("Ping", "Метка", "Ставит внутри-игровую метку по направлению взгляда.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "Middle" } });
                 viewModel.AddScript("DisablingTheKeyboard", "Отключение клавиатуры", "Полностью отключает ввод с клавиатуры на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
                 viewModel.AddScript("DisablingTheMouse", "Отключение мыши", "Полностью отключает ввод с мыши на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
+                viewModel.AddScript("DisableShooting", "Отключение стрельбы", "Отключает возможность стрелять на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
+                viewModel.AddScript("DisableRotation", "Отключение вращения", "Отключает возможность вращать камеру на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
+                viewModel.AddScript("InvertControl", "Инвертировать управление", "Меняет местами WASD на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
                 viewModel.SaveToJson(MYCONFIG);
                 return;
             }
@@ -450,6 +466,9 @@ namespace Randomizator
                 case ("Right"):
                     inputSimulator.Mouse.RightButtonClick();
                     break;
+                case ("Middle"):
+                    inputSimulator.Mouse.MiddleButtonClick();
+                    break;
                 case ("Up"):
                     inputSimulator.Mouse.VerticalScroll(1);
                     break;
@@ -467,35 +486,53 @@ namespace Randomizator
             }
             return;
         }
+
+        private void SendLog(string log)
+        {
+            string file = $"{MYLOGSFOLDER}/{DateTime.Now.ToString("dd.MM.yyyy")}.txt";
+            File.AppendAllText(file, $"{DateTime.Now} | {log}\n");
+        }
         #endregion
 
         #region Scripts
         private async Task Drop_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Drop");
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Drop").Info.Config.Binds.Values.FirstOrDefault()));
             await Task.Delay(500, ct);
         }
 
         private async Task Jump_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Jump");
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Jump").Info.Config.Binds.Values.FirstOrDefault()));
             await Task.Delay(500, ct);
         }
 
         private async Task Inspect_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Inspect");
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Inspect").Info.Config.Binds.Values.FirstOrDefault()));
             await Task.Delay(500, ct);
         }
 
         private async Task Reload_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Reload");
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Reload").Info.Config.Binds.Values.FirstOrDefault()));
+            await Task.Delay(500, ct);
+        }
+
+        private async Task Interact_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            SendLog("Interact");
+            inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Interact").Info.Config.Binds.Values.FirstOrDefault()));
             await Task.Delay(500, ct);
         }
 
         private async Task Fire_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Fire");
             string key = viewModel.FindScriptByShortName("Fire").Info.Config.Binds.Values.FirstOrDefault();
             if (isThisMouseButton.Contains(key))
             {
@@ -509,6 +546,7 @@ namespace Randomizator
 
         private async Task SFire_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("SFire");
             string key = viewModel.FindScriptByShortName("SFire").Info.Config.Binds.Values.FirstOrDefault();
             if (isThisMouseButton.Contains(key))
             {
@@ -522,6 +560,7 @@ namespace Randomizator
 
         private async Task Voice_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Voice");
             VirtualKeyCode targetKey = GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Voice").Info.Config.Binds.Values.FirstOrDefault());
             int intValue = viewModel.FindScriptByShortName("Voice").Info.Config.Int;
 
@@ -530,6 +569,7 @@ namespace Randomizator
 
         private async Task Crouch_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Crouch");
             VirtualKeyCode targetKey = GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Crouch").Info.Config.Binds.Values.FirstOrDefault());
             int intValue = viewModel.FindScriptByShortName("Crouch").Info.Config.Int;
 
@@ -538,6 +578,7 @@ namespace Randomizator
 
         private async Task Sneak_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Sneak");
             VirtualKeyCode targetKey = GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Sneak").Info.Config.Binds.Values.FirstOrDefault());
             int intValue = viewModel.FindScriptByShortName("Sneak").Info.Config.Int;
 
@@ -546,6 +587,7 @@ namespace Randomizator
 
         private async Task WeaponSwitch_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("WeaponSwitch");
             Random random = new Random();
             var binds = viewModel.FindScriptByShortName("WeaponSwitch").Info.Config.Binds.Values.ToList();
             inputSimulator.Keyboard.KeyPress(GetVirtualKeyCodeFromDictionary(binds[random.Next(binds.Count)]));
@@ -554,6 +596,7 @@ namespace Randomizator
 
         private async Task WalkingSomewhere_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("WalkingSomewhere");
             Random rand = new Random();
             List<VirtualKeyCode> blockedKeys = new List<VirtualKeyCode>();
             foreach (var key in viewModel.FindScriptByShortName("WalkingSomewhere").Info.Config.Binds.Values.ToList()) { blockedKeys.Add(GetVirtualKeyCodeFromDictionary(key)); }
@@ -566,6 +609,7 @@ namespace Randomizator
         
         private async Task TurnAround_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("TurnAround");
             Random rand = new Random();
             inputSimulator.Mouse.MoveMouseBy(rand.Next(-13650, 13650), rand.Next(-3500, 3500));
             await Task.Delay(500, ct);
@@ -573,6 +617,7 @@ namespace Randomizator
         
         private async Task Ping_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("Ping");
             string key = viewModel.FindScriptByShortName("Ping").Info.Config.Binds.Values.FirstOrDefault();
             if (isThisMouseButton.Contains(key))
             {
@@ -586,6 +631,7 @@ namespace Randomizator
         
         private async Task DisablingTheKeyboard_Script(CancellationToken ct, ScriptCollection viewModel)
         {
+            SendLog("DisablingKeyboard");
             int intValue = viewModel.FindScriptByShortName("DisablingTheKeyboard").Info.Config.Int;
             List<VirtualKeyCode> keysForRelease = new List<VirtualKeyCode> 
             {
@@ -598,6 +644,7 @@ namespace Randomizator
                 { GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Sneak").Info.Config.Binds.Values.FirstOrDefault()) },
                 { GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Inspect").Info.Config.Binds.Values.FirstOrDefault()) },
                 { GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Voice").Info.Config.Binds.Values.FirstOrDefault()) },
+                { GetVirtualKeyCodeFromDictionary(viewModel.FindScriptByShortName("Interact").Info.Config.Binds.Values.FirstOrDefault()) }
             };
             using (var blocker = new BlockTheEntireKeyboard())
             {
@@ -606,6 +653,21 @@ namespace Randomizator
         }
 
         private async Task DisablingTheMouse_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            return;
+        }
+        
+        private async Task DisableShooting_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            return;
+        }
+        
+        private async Task DisableRotation_Script(CancellationToken ct, ScriptCollection viewModel)
+        {
+            return;
+        }
+        
+        private async Task InvertControl_Script(CancellationToken ct, ScriptCollection viewModel)
         {
             return;
         }
