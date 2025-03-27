@@ -18,6 +18,7 @@ namespace Randomizator
     {
         #region Declarations
         List<ScriptEntry> enabledScripts = new List<ScriptEntry>();
+        Settings settings = new Settings();
         ScriptEntry selectedScript;
 
         //Перехват и эмуляция нажатий
@@ -35,7 +36,8 @@ namespace Randomizator
 
         //Директории
         readonly string MYDIRECTORY = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator";
-        readonly string MYCONFIG = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator/config.json";
+        readonly string MYSCRIPTCONFIG = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator/config.json";
+        readonly string MYSETTINGSCONFIG = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator/settings.json";
         readonly string MYLOGSFOLDER = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator/Logs";
 
         // Словари
@@ -207,7 +209,7 @@ namespace Randomizator
         private void WindowLoaded(object sender, RoutedEventArgs e)
         {
             var viewModel = (ScriptCollection)this.DataContext;
-            CollectScripts(viewModel);
+            CreateScripts(viewModel);
             scriptsLabel.Content = $"Список сценариев ({EnabledScriptsCount(viewModel)})";
         }
 
@@ -216,50 +218,25 @@ namespace Randomizator
         private void CloseWindow(object sender, RoutedEventArgs e) { Close(); }
 
         private void MinimizeWindow(object sender, RoutedEventArgs e) { WindowState = WindowState.Minimized; }
+        
+        private void OpenSettings(object sender, RoutedEventArgs e)
+        {
+            HideAllGrids();
+            Settings_Label.Content = "Конфигурация рулетки";
+            Settings_Grid.Visibility = Visibility.Visible;
+            WindowSettings.Visibility = Visibility.Visible;
+            
+            if (File.Exists(MYSETTINGSCONFIG))
+            {
+                LoadSettings();
+                return;
+            }
+            CreateSettings();
+        }
 
         private void StartScriptRoulette(object sender, RoutedEventArgs e)
         {
-            if (enabledScripts.Count() == 0) return;
-
-            ConnectButton_Image.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/Images/greenPin.png"));
-
-            var viewModel = (ScriptCollection)this.DataContext;
-            inputSimulator = new InputSimulator();
-
-            CollectFunctions(viewModel);
-
-            if (rouletteStarted)
-            {
-                _cts.Cancel();
-                rouletteStarted = false;
-                ConnectButton_Image.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/Images/redPin.png"));
-            }
-            else
-            {
-                _cts = new CancellationTokenSource();
-                rouletteStarted = true;
-
-                var token = _cts.Token;
-
-                _runningTask = Task.Run(async () =>
-                {
-                    while (!token.IsCancellationRequested)
-                    {
-                        try
-                        {
-                            if (enabledFunctions.Count() == 0) { await Task.Delay(1000, token); return; }
-                            await Task.Delay(new Random().Next(30, 91) * 1000, token);
-                            await enabledFunctions[new Random().Next(enabledFunctions.Count)](token, viewModel);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            break;
-                        }
-                    }
-
-                    rouletteStarted = false;
-                }, token);
-            }
+            StartRoulette();
         }
 
         private void PinWindow(object sender, RoutedEventArgs e)
@@ -279,13 +256,15 @@ namespace Randomizator
         private void ApplyChanges(object sender, RoutedEventArgs e)
         {
             var viewModel = (ScriptCollection)this.DataContext;
-            viewModel.SaveToJson(MYCONFIG);
+            viewModel.SaveToJson(MYSCRIPTCONFIG);
             CollectFunctions(viewModel);
             scriptsLabel.Content = $"Список сценариев ({EnabledScriptsCount(viewModel)})";
         }
 
         private void ScriptSettings(object sender, RoutedEventArgs e)
         {
+            HideAllGrids();
+            Settings_Grid.Visibility = Visibility.Visible;
             ScriptSettings_Grid.Visibility = Visibility.Visible;
 
             var button = sender as System.Windows.Controls.Button;
@@ -293,7 +272,7 @@ namespace Randomizator
             selectedScript = item;
             scriptDescription.Text = item.Info.Description;
 
-            scriptName.Content = item.Info.Name;
+            Settings_Label.Content = item.Info.Name;
 
             if (item.Info.Config.Int != 0) 
             {
@@ -366,47 +345,52 @@ namespace Randomizator
 
         private void CloseScriptSettings(object sender, RoutedEventArgs e)
         {
-            ScriptSettings_Grid.Visibility = Visibility.Collapsed;
+            Settings_Grid.Visibility = Visibility.Collapsed;
         }
 
         private void SaveScriptSettings(object sender, RoutedEventArgs e)
         {
-            var viewModel = (ScriptCollection)this.DataContext;
-            Dictionary<string, string> binds = new Dictionary<string, string>();
-
-            switch (selectedScript.ShortName)
+            if (ScriptSettings_Grid.Visibility == Visibility.Visible)
             {
-                case ("WalkingSomewhere"):
-                    if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
-                    binds.Add("Forward", Forward_TextBox.Text);
-                    binds.Add("Left", Left_TextBox.Text);
-                    binds.Add("Backward", Backward_TextBox.Text);
-                    binds.Add("Right", Right_TextBox.Text);
-                    break;
+                var viewModel = (ScriptCollection)this.DataContext;
+                Dictionary<string, string> binds = new Dictionary<string, string>();
 
-                case ("WeaponSwitch"):
-                    if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
-                    if (Main_TextBox.Text != "") binds.Add("Main", Main_TextBox.Text);
-                    if (Secondary_TextBox.Text != "") binds.Add("Secondary", Secondary_TextBox.Text);
-                    if (Knife_TextBox.Text != "") binds.Add("Knife", Knife_TextBox.Text);
-                    if (Grenades_TextBox.Text != "") binds.Add("Grenades", Grenades_TextBox.Text);
-                    if (Bomb_TextBox.Text != "") binds.Add("Bomb", Bomb_TextBox.Text);
-                    break;
+                switch (selectedScript.ShortName)
+                {
+                    case ("WalkingSomewhere"):
+                        if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
+                        binds.Add("Forward", Forward_TextBox.Text);
+                        binds.Add("Left", Left_TextBox.Text);
+                        binds.Add("Backward", Backward_TextBox.Text);
+                        binds.Add("Right", Right_TextBox.Text);
+                        break;
 
-                default:
-                    if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
-                    if (selectedScript.Info.Config.Binds.ContainsKey("Bind")) binds.Add("Bind", Keybind_TextBox.Text);
-                    break;
+                    case ("WeaponSwitch"):
+                        if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
+                        if (Main_TextBox.Text != "") binds.Add("Main", Main_TextBox.Text);
+                        if (Secondary_TextBox.Text != "") binds.Add("Secondary", Secondary_TextBox.Text);
+                        if (Knife_TextBox.Text != "") binds.Add("Knife", Knife_TextBox.Text);
+                        if (Grenades_TextBox.Text != "") binds.Add("Grenades", Grenades_TextBox.Text);
+                        if (Bomb_TextBox.Text != "") binds.Add("Bomb", Bomb_TextBox.Text);
+                        break;
+
+                    default:
+                        if (selectedScript.Info.Config.Int != 0) selectedScript.Info.Config.Int = Int32.Parse(Int_TextBox.Text);
+                        if (selectedScript.Info.Config.Binds.ContainsKey("Bind")) binds.Add("Bind", Keybind_TextBox.Text);
+                        break;
+                }
+                viewModel.EditScript(selectedScript, binds);
+                viewModel.SaveToJson(MYSCRIPTCONFIG);
+                return;
             }
-            viewModel.EditScript(selectedScript, binds);
-            viewModel.SaveToJson(MYCONFIG);
+            SaveSettings();
         }
         #endregion
 
         #region Helpers
-        private void CollectScripts(ScriptCollection viewModel)
+        private void CreateScripts(ScriptCollection viewModel)
         {
-            if (!File.Exists(MYCONFIG))
+            if (!File.Exists(MYSCRIPTCONFIG))
             {
                 viewModel.AddScript("Drop", "Выбросить оружие", "Выбрасывает оружие которое вы держите в руках.", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "G" } });
                 viewModel.AddScript("Jump", "Прыжок", "Нажимает кнопку \"Прыжка\".", false, Visibility.Visible, new Dictionary<string, string> { { "Bind", "Space" } });
@@ -427,10 +411,10 @@ namespace Randomizator
                 viewModel.AddScript("DisableShooting", "Отключение стрельбы", "Отключает возможность стрелять на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
                 viewModel.AddScript("DisableRotation", "Отключение вращения", "Отключает возможность вращать камеру на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
                 viewModel.AddScript("InvertControl", "Инвертировать управление", "Меняет местами WASD на N секунд.", false, Visibility.Visible, new Dictionary<string, string>(), 10);
-                viewModel.SaveToJson(MYCONFIG);
+                viewModel.SaveToJson(MYSCRIPTCONFIG);
                 return;
             }
-            var loadedViewModel = ScriptCollection.LoadFromJson(MYCONFIG);
+            var loadedViewModel = ScriptCollection.LoadFromJson(MYSCRIPTCONFIG);
 
             foreach (var item in loadedViewModel.Scripts)
             {
@@ -438,6 +422,104 @@ namespace Randomizator
             }
         }
         
+        private void CreateSettings()
+        {
+            settings = new Settings
+            {
+                Roulette = new Settings.RouletteSettings
+                {
+                    From = 30,
+                    To = 90
+                },
+                Other = new Settings.OtherSettings
+                {
+                    RouletteBind = "F6",
+                    RandomSampling = false,
+                    CombineScripts = false
+                }
+            };
+
+            settings.SaveToFile(MYSETTINGSCONFIG);
+            LoadSettings();
+        }
+
+        private void SaveSettings()
+        {
+            settings = new Settings
+            {
+                Roulette = new Settings.RouletteSettings
+                {
+                    From = int.TryParse(pauseFrom.Text, out int valueFrom) ? valueFrom : 30,
+                    To = int.TryParse(pauseTo.Text, out int valueTo) ? valueTo : 90
+                },
+                Other = new Settings.OtherSettings
+                {
+                    RouletteBind = rouletteBind.Text,
+                    RandomSampling = (bool)randomSampling.IsChecked,
+                    CombineScripts = (bool)combineScripts.IsChecked
+                }
+            };
+
+            settings.SaveToFile(MYSETTINGSCONFIG);
+        }
+
+        private void LoadSettings()
+        {
+            settings = Settings.LoadFromFile(MYSETTINGSCONFIG);
+            pauseFrom.Text = settings.Roulette.From.ToString();
+            pauseTo.Text = settings.Roulette.To.ToString();
+            rouletteBind.Text = settings.Other.RouletteBind;
+            randomSampling.IsChecked = settings.Other.RandomSampling;
+            combineScripts.IsChecked = settings.Other.CombineScripts;
+        }
+
+        private void StartRoulette()
+        {
+            if (enabledScripts.Count() == 0) return;
+            if (settings.Roulette.From > settings.Roulette.To)
+            {
+                System.Windows.MessageBox.Show("Параметр \"От\" не должен быть больше \"До\"."); 
+                return;
+            }
+
+            var viewModel = (ScriptCollection)this.DataContext;
+            inputSimulator = new InputSimulator();
+            ConnectButton_Image.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/Images/greenPin.png"));
+            CollectFunctions(viewModel);
+
+            if (rouletteStarted)
+            {
+                _cts.Cancel();
+                rouletteStarted = false;
+                ConnectButton_Image.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/Images/redPin.png"));
+            }
+            else
+            {
+                _cts = new CancellationTokenSource();
+                rouletteStarted = true;
+
+                var token = _cts.Token;
+
+                _runningTask = Task.Run(async () =>
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            if (enabledFunctions.Count() == 0) { await Task.Delay(1000, token); return; }
+                            await Task.Delay(new Random().Next(settings.Roulette.From, settings.Roulette.To + 1) * 1000, token);
+                            await enabledFunctions[new Random().Next(enabledFunctions.Count)](token, viewModel);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                    }
+                    rouletteStarted = false;
+                }, token);
+            }
+        }
+
         private int EnabledScriptsCount(ScriptCollection viewModel)
         {
             enabledScripts = viewModel.Scripts.Where(scriptEntry => scriptEntry.Info.Enabled).ToList();
@@ -491,6 +573,12 @@ namespace Randomizator
         {
             string file = $"{MYLOGSFOLDER}/{DateTime.Now.ToString("dd.MM.yyyy")}.txt";
             File.AppendAllText(file, $"{DateTime.Now} | {log}\n");
+        }
+        
+        private void HideAllGrids()
+        {
+            WindowSettings.Visibility = Visibility.Collapsed;
+            ScriptSettings_Grid.Visibility = Visibility.Collapsed;
         }
         #endregion
 

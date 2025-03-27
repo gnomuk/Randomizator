@@ -28,9 +28,9 @@
             </StackPanel>
             <Label Content="Randomizator" HorizontalAlignment="Center" Padding="0" Margin="3" FontWeight="Bold"/>
             <StackPanel Grid.Row="0" HorizontalAlignment="Right" Orientation="Horizontal">
-                <!--<Button Width="24" Height="24" Style="{StaticResource WindowTitleStyle}" Cursor="Hand">
+                <Button Width="24" Height="24" Style="{StaticResource WindowTitleStyle}" Cursor="Hand" Click="OpenSettings">
                     <Image RenderOptions.BitmapScalingMode="HighQuality" Width="16" Height="16" Source="Assets/Images/gear.png"/>
-                </Button>-->
+                </Button>
                 <Button Margin="2 0 0 0" Content="_" Width="24" Height="24" Cursor="Hand" Style="{StaticResource WindowTitleStyle}" Click="MinimizeWindow" />
                 <Button Margin="2 0 0 0" Content="✕" Width="24" Height="24" Cursor="Hand" Style="{StaticResource WindowTitleStyle}" Click="CloseWindow"/>
             </StackPanel>
@@ -43,6 +43,7 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
+            <!--Script List-->
             <Grid HorizontalAlignment="Stretch" Grid.Column="0" VerticalAlignment="Stretch">
                 <Label x:Name="scriptsLabel" Content="Список сценариев" Padding="0" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"/>
                 <Grid>
@@ -70,34 +71,81 @@
                     <Button Grid.Row="2" Content="Применить" Margin="0 3 0 0" Background="#FF68EC68" BorderBrush="#FFC8C8C8" Click="ApplyChanges"/>
                 </Grid>
             </Grid>
-            
-            <!--Script Settings-->
-            <Grid x:Name="ScriptSettings_Grid" Visibility="Hidden" Grid.Column="1" Margin="5 0 0 0">
+
+            <!--Settings Body-->
+            <Grid x:Name="Settings_Grid" Visibility="Collapsed" Grid.Column="1" Margin="5 0 0 0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="20"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="30"/>
                 </Grid.RowDefinitions>
-                <Label x:Name="scriptName" Grid.Row="0" Content="Описание сценария" Padding="0" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"/>
-                
+                <Label x:Name="Settings_Label" Grid.Row="0" Content="Описание сценария" Padding="0" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"/>
 
-                <StackPanel Grid.Row="1">
-                    <Border VerticalAlignment="Top" Padding="5 2.5 5 2.5" BorderThickness="1" BorderBrush="#FFC8C8C8">
-                        <TextBlock x:Name="scriptDescription" Text="" TextWrapping="WrapWithOverflow"/>
-                    </Border>
+                <!--Window Settings-->
+                <Grid x:Name="WindowSettings" Visibility="Collapsed" Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="60"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <Border BorderThickness="1" BorderBrush="#FFC8C8C8" Padding="5">
+                            <StackPanel>
+                                <Label Content="Пауза между новыми сценариями:" HorizontalAlignment="Center" Padding="0" Margin="0 0 0 5"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Label Content="От" Padding="0" Margin="2.5 0 2.5 0"/>
+                                    <TextBox x:Name="pauseFrom" TextAlignment="Center" Width="40" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="IntInput"/>
+                                    <Label Content="До" Padding="0" Margin="5 0 2.5 0"/>
+                                    <TextBox x:Name="pauseTo" TextAlignment="Center" Width="40" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="IntInput"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1">
+                        <Border BorderThickness="1" BorderBrush="#FFC8C8C8">
+                            <StackPanel>
+                                <Grid Margin="5" Visibility="Visible">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox x:Name="rouletteBind" TextAlignment="Center" Width="60" Height="20" MaxLength="1" MaxLines="1" PreviewKeyDown="KeyboardInput"  IsReadOnly="True"/>
+                                        <TextBlock Text="Включение/отключение рулетки" TextTrimming="CharacterEllipsis" Margin="5 0 0 0" TextWrapping="NoWrap" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Grid}}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="5">
+                                    <CheckBox x:Name="randomSampling">
+                                        <TextBlock Text="Случайная выборка сценариев без повторений" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Grid}}"/>
+                                    </CheckBox>
+                                </Grid>
+
+                                <Grid Margin="5">
+                                    <CheckBox x:Name="combineScripts">
+                                        <TextBlock Text="Комбинирование сценариев" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Grid}}"/>
+                                    </CheckBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <!--Script Settings-->
+                <StackPanel x:Name="ScriptSettings_Grid" Visibility="Collapsed" Grid.Row="1" Cursor="Hand">
                     <StackPanel>
+                        <Border VerticalAlignment="Top" Padding="5 2.5 5 2.5" BorderThickness="1" BorderBrush="#FFC8C8C8">
+                            <TextBlock x:Name="scriptDescription" Text="" TextWrapping="WrapWithOverflow"/>
+                        </Border>
                         <!--Key Input-->
                         <StackPanel x:Name="KeybindInput_StackPanel" Visibility="Collapsed" Orientation="Horizontal" Margin="0 5 0 0">
                             <TextBox x:Name="Keybind_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="1" MaxLines="1" PreviewKeyDown="KeyboardInput" PreviewMouseDown="MouseInput" PreviewMouseWheel="MouseWheelInput" IsReadOnly="True"/>
                             <Label Content="Используемая в игре клавиша" Padding="0" Margin="5 0 0 0"/>
                         </StackPanel>
-                        
+
                         <!--Int Input-->
                         <StackPanel x:Name="IntInput_StackPanel" Visibility="Collapsed" Orientation="Horizontal" Margin="0 5 0 0">
                             <TextBox x:Name="Int_TextBox" TextAlignment="Center" Width="60" Height="20" MaxLength="2" MaxLines="1" PreviewKeyDown="IntInput"/>
                             <Label Content="Значение N" Padding="0" Margin="5 0 0 0"/>
                         </StackPanel>
-                        
+
                         <!--Walking Somewhere-->
                         <StackPanel x:Name="WalkingSomewhere_StackPanel" Visibility="Collapsed" Margin="0 5 0 0">
                             <StackPanel Orientation="Horizontal" Margin="0 0 0 5">
