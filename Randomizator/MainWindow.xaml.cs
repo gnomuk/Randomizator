@@ -1,6 +1,9 @@
 ﻿using Gma.System.MouseKeyHook;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -20,19 +23,17 @@ namespace Randomizator
         List<ScriptEntry> enabledScripts = new List<ScriptEntry>();
         Settings settings = new Settings();
         ScriptEntry selectedScript;
+        ScriptCollection viewModel;
 
-        //Перехват и эмуляция нажатий
+        //Эмуляция нажатий
         private InputSimulator inputSimulator;
         private IKeyboardMouseEvents _globalHook;
 
-        private VirtualKeyCode _targetKey;
-        private bool _isSimulatingKey;
-
-
         // Рулетка сценариев
-        private bool rouletteStarted = false;
+        private bool _rouletteStarted = false;
         private CancellationTokenSource _cts;
         private Task _runningTask;
+        private bool _enabledScriptsShuffled = false;
 
         //Директории
         readonly string MYDIRECTORY = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}/Randomizator";
@@ -69,6 +70,18 @@ namespace Randomizator
             {"X", Keys.X},
             {"Y", Keys.Y},
             {"Z", Keys.Z},
+            {"F1", Keys.F1},
+            {"F2", Keys.F2},
+            {"F3", Keys.F3},
+            {"F4", Keys.F4},
+            {"F5", Keys.F5},
+            {"F6", Keys.F6},
+            {"F7", Keys.F7},
+            {"F8", Keys.F8},
+            {"F9", Keys.F9},
+            {"F10", Keys.F10},
+            {"F11", Keys.F11},
+            {"F12", Keys.F12},
             {"Space", Keys.Space},
             {"LeftCtrl", Keys.LControlKey},
             {"RightCtrl", Keys.RControlKey},
@@ -167,15 +180,17 @@ namespace Randomizator
 
         readonly string[] isThisMouseButton = { "Left", "Right", "Middle", "Up", "Down", "XButton1", "XButton2" };
 
-        private readonly Dictionary<string, Func<CancellationToken, ScriptCollection, Task>> allFunctions;
+        readonly Dictionary<string, Func<CancellationToken, ScriptCollection, Task>> allFunctions;
 
         List<Func<CancellationToken, ScriptCollection, Task>> enabledFunctions = new List<Func<CancellationToken, ScriptCollection, Task>>();
-
         #endregion
         
         public MainWindow()
         {
             InitializeComponent();
+            _globalHook = Hook.GlobalEvents();
+            _globalHook.KeyDown += GlobalHook_KeyDown;
+
             if (!Directory.Exists(MYDIRECTORY)) Directory.CreateDirectory(MYDIRECTORY);
             if (!Directory.Exists(MYLOGSFOLDER)) Directory.CreateDirectory(MYLOGSFOLDER);
 
@@ -208,8 +223,9 @@ namespace Randomizator
         #region Window Handlers
         private void WindowLoaded(object sender, RoutedEventArgs e)
         {
-            var viewModel = (ScriptCollection)this.DataContext;
+            viewModel = (ScriptCollection)this.DataContext;
             CreateScripts(viewModel);
+            if (File.Exists(MYSETTINGSCONFIG)) LoadSettings(); else CreateSettings();
             scriptsLabel.Content = $"Список сценариев ({EnabledScriptsCount(viewModel)})";
         }
 
@@ -255,7 +271,6 @@ namespace Randomizator
         #region Other Handlers
         private void ApplyChanges(object sender, RoutedEventArgs e)
         {
-            var viewModel = (ScriptCollection)this.DataContext;
             viewModel.SaveToJson(MYSCRIPTCONFIG);
             CollectFunctions(viewModel);
             scriptsLabel.Content = $"Список сценариев ({EnabledScriptsCount(viewModel)})";
@@ -352,7 +367,6 @@ namespace Randomizator
         {
             if (ScriptSettings_Grid.Visibility == Visibility.Visible)
             {
-                var viewModel = (ScriptCollection)this.DataContext;
                 Dictionary<string, string> binds = new Dictionary<string, string>();
 
                 switch (selectedScript.ShortName)
@@ -482,40 +496,71 @@ namespace Randomizator
                 return;
             }
 
-            var viewModel = (ScriptCollection)this.DataContext;
+            var waveOut = new WaveOutEvent();
+            var startSignal = new SignalGenerator()
+            {
+                Gain = 0.2, // Громкость
+                Frequency = 440, // Частота (в Гц)
+                Type = SignalGeneratorType.Sin // Тип сигнала (синусоидальный)
+            }.Take(TimeSpan.FromSeconds(0.3));
+
+            var stopSignal = new SignalGenerator()
+            {
+                Gain = 0.2, // Громкость
+                Frequency = 840, // Частота (в Гц)
+                Type = SignalGeneratorType.Sin // Тип сигнала (синусоидальный)
+            }.Take(TimeSpan.FromSeconds(0.3));
+
             inputSimulator = new InputSimulator();
+
             ConnectButton_Image.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/Images/greenPin.png"));
+
             CollectFunctions(viewModel);
 
-            if (rouletteStarted)
+            if (_rouletteStarted)
             {
                 _cts.Cancel();
-                rouletteStarted = false;
+                _rouletteStarted = false;
                 ConnectButton_Image.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/Images/redPin.png"));
+                waveOut.Init(stopSignal);
+                waveOut.Play();
             }
             else
             {
-                _cts = new CancellationTokenSource();
-                rouletteStarted = true;
+                waveOut.Init(startSignal);
+                waveOut.Play();
 
+                _cts = new CancellationTokenSource();
+                _rouletteStarted = true;
                 var token = _cts.Token;
 
                 _runningTask = Task.Run(async () =>
                 {
                     while (!token.IsCancellationRequested)
                     {
+                        if (settings.Other.RandomSampling && !_enabledScriptsShuffled) { CollectFunctions(viewModel); Shuffle(enabledFunctions); Debug.WriteLine("RS: true, Shuffle"); }
+                        else if (!settings.Other.RandomSampling && _enabledScriptsShuffled) { _enabledScriptsShuffled = false; CollectFunctions(viewModel); Debug.WriteLine("RS: false, CollectFunctions"); }
+
+                        var taskForStart = settings.Other.RandomSampling ? enabledFunctions.FirstOrDefault() : enabledFunctions[new Random().Next(enabledFunctions.Count)];
+                        Debug.WriteLine($"enabledScripts Count: {enabledFunctions.Count()}, {taskForStart.Method.Name}");
                         try
                         {
-                            if (enabledFunctions.Count() == 0) { await Task.Delay(1000, token); return; }
                             await Task.Delay(new Random().Next(settings.Roulette.From, settings.Roulette.To + 1) * 1000, token);
-                            await enabledFunctions[new Random().Next(enabledFunctions.Count)](token, viewModel);
+                            await taskForStart(token, viewModel);
+                            if (settings.Other.RandomSampling)
+                            {
+                                Debug.WriteLine("RemoveSelected");
+                                enabledFunctions.Remove(taskForStart);
+
+                                if (enabledFunctions.Count() == 0) { CollectFunctions(viewModel); Debug.WriteLine("if Count == 0 | CollectFunctions"); }
+                            }
                         }
                         catch (OperationCanceledException)
                         {
                             break;
                         }
                     }
-                    rouletteStarted = false;
+                    _rouletteStarted = false;
                 }, token);
             }
         }
@@ -536,6 +581,7 @@ namespace Randomizator
         {
             enabledFunctions.Clear();
             foreach (var i in viewModel.Scripts.Where(x => x.Info.Enabled).Select(x => x.ShortName).ToList()) enabledFunctions.Add(allFunctions[i]);
+            if (settings.Other.RandomSampling) Shuffle(enabledFunctions);
         }
         
         private void MouseClick(string key)
@@ -579,6 +625,22 @@ namespace Randomizator
         {
             WindowSettings.Visibility = Visibility.Collapsed;
             ScriptSettings_Grid.Visibility = Visibility.Collapsed;
+        }
+
+        private void Shuffle<T>(IList<T> list)
+        {
+            Random rng = new Random();
+            int n = list.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = rng.Next(n + 1);
+                T value = list[k];
+                list[k] = list[n];
+                list[n] = value;
+            }
+
+            _enabledScriptsShuffled = true;
         }
         #endregion
 
@@ -759,6 +821,20 @@ namespace Randomizator
         {
             return;
         }
+        #endregion
+
+        #region Hooks
+        private void GlobalHook_KeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if (e.KeyCode == GetWinFormsKeyCodeFromDictionary(settings.Other.RouletteBind))
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() => { StartRoulette(); });
+            }
+        }
+        #endregion
+
+        #region Async Functions
+
         #endregion
     }
 }
